@@ -1,0 +1,34 @@
+{
+  "name": "anime-jeopardy",
+  "version": "0.1.0",
+  "description": "Anime Jeopardy API server",
+  "main": "dist/index.js",
+  "scripts": {
+    "test": "npm run typecheck",
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^4.21.0",
+    "helmet": "^8.1.0",
+    "mongoose": "^8.9.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.0",
+    "@types/morgan": "^1.9.10",
+    "@types/node": "^25.0.8",
+    "morgan": "^1.10.1",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}

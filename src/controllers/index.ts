@@ -1,0 +1,2 @@
+export { createCategory, getCategories, getCategoryById, updateCategory, deleteCategory } from './category.js';
+export { createQuestion, getQuestions, getQuestionById, getQuestionsByCategory, getQuestionsByDifficulty, updateQuestion, deleteQuestion, deleteQuestionsByCategory } from './question.js';
