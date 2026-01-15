@@ -9,16 +9,16 @@ export const createQuestion = async (req: Request, res: Response) => {
 };
 
 export const getQuestions = async (req: Request, res: Response) => {
-    const { category, difficulty } = req.query;
+    const { category, difficulty, value} = req.query;
    
-    const filter:  Record<string, string> = {}
-    if (category) filter.category = category as string;
+    const filter:  Record<string, string | number> = {}
+    if (category) filter.category = category as string; 
     if (difficulty) filter.difficulty = difficulty as string;
-    
+    if (value) filter.value = Number(value);
     const questions = await Question.find(filter);
     
     if (questions.length === 0) {
-        throw new AppError('No questions found for this category or difficulty', 404);
+        throw new AppError('No questions found for this category or difficulty or value', 404);
     }
     res.status(200).json(questions);
 };
