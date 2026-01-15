@@ -1,6 +1,6 @@
-# Anime Jeopardy
+# Anime Jeopardy API
 
-An anime trivia game.
+An API that acesses anime trivia questions. (No data yet)
 
 ## Getting Started
 
