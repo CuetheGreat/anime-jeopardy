@@ -15,7 +15,7 @@ export const getCategories = async (_req: Request, res: Response) => {
 
 export const getCategoryById = async (req: Request, res: Response) => {
     const { id } = req.params;
-    const category = await Category.findById(id);
+    const category = await Category.findOne({ id });
     if (!category) {
         throw new AppError('Category not found', 404);
     }
@@ -25,7 +25,7 @@ export const getCategoryById = async (req: Request, res: Response) => {
 export const updateCategory = async (req: Request, res: Response) => {
     const { id } = req.params;
     const { name, description } = req.body;
-    const category = await Category.findByIdAndUpdate(id, { name, description }, { new: true });
+    const category = await Category.findOneAndUpdate({ id }, { name, description }, { new: true });
     if (!category) {
         throw new AppError('Category not found', 404);
     }
@@ -34,7 +34,7 @@ export const updateCategory = async (req: Request, res: Response) => {
 
 export const deleteCategory = async (req: Request, res: Response) => {
     const { id } = req.params;
-    const category = await Category.findByIdAndDelete(id);
+    const category = await Category.findOneAndDelete({ id });
     if (!category) {
         throw new AppError('Category not found', 404);
     }
