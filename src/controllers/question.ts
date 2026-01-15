@@ -8,10 +8,17 @@ export const createQuestion = async (req: Request, res: Response) => {
     res.status(201).json(newQuestion);
 };
 
-export const getQuestions = async (_req: Request, res: Response) => {
-    const questions = await Question.find();
+export const getQuestions = async (req: Request, res: Response) => {
+    const { category, difficulty } = req.query;
+   
+    const filter:  Record<string, string> = {}
+    if (category) filter.category = category as string;
+    if (difficulty) filter.difficulty = difficulty as string;
+    
+    const questions = await Question.find(filter);
+    
     if (questions.length === 0) {
-        throw new AppError('No questions found', 404);
+        throw new AppError('No questions found for this category or difficulty', 404);
     }
     res.status(200).json(questions);
 };
@@ -23,24 +30,6 @@ export const getQuestionById = async (req: Request, res: Response) => {
         throw new AppError('Question not found', 404);
     }
     res.status(200).json(question);
-};
-
-export const getQuestionsByCategory = async (req: Request, res: Response) => {
-    const { category } = req.params;
-    const questions = await Question.find({ category });
-    if (questions.length === 0) {
-        throw new AppError('No questions found for this category', 404);
-    }
-    res.status(200).json(questions);
-};
-
-export const getQuestionsByDifficulty = async (req: Request, res: Response) => {
-    const { difficulty } = req.params;
-    const questions = await Question.find({ difficulty });
-    if (questions.length === 0) {
-        throw new AppError('No questions found for this difficulty', 404);
-    }
-    res.status(200).json(questions);
 };
 
 export const updateQuestion = async (req: Request, res: Response) => {
