@@ -5,7 +5,6 @@ const CategorySchema = new Schema({
     id: { type: String, required: true, unique: true, default: () => randomUUID() },
     name: { type: String, required: true, unique: true },
     description: { type: String, required: false },
-    image: { type: String, required: false },
 }, { timestamps: true });
 
 export const Category = model('Category', CategorySchema);
