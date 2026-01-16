@@ -1,39 +1,33 @@
 /**
- * In-memory game state manager
- * For production, consider using Redis or MongoDB for persistence
+ * In-memory game state manager for Final Jeopardy
  */
 
 export interface Player {
-    id: string;
-    name: string;
-    score: number;
-    wager?: number;
-    answer?: string;
-    hasAnswered: boolean;
+    playerId: string;
+    playerName: string;
+    wager: number;
+    answer: string;
+    revealed: boolean;
 }
 
 export interface GameRoom {
-    code: string;
+    gameCode: string;
     hostId: string;
-    players: Map<string, Player>;
-    currentQuestion: string | null;
-    phase: 'lobby' | 'wagering' | 'answering' | 'revealing' | 'ended';
-    createdAt: Date;
+    phase: 'waiting' | 'wagers' | 'question' | 'answers' | 'locked' | 'revealing';
+    category: string;
+    question: string;
+    correctAnswer: string;
+    players: Player[];
 }
 
 class GameManager {
     private games: Map<string, GameRoom> = new Map();
 
     /**
-     * Generate a random 4-character game code
+     * Generate a random 6-character game code
      */
     generateCode(): string {
-        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Exclude confusing chars
-        let code = '';
-        for (let i = 0; i < 4; i++) {
-            code += chars.charAt(Math.floor(Math.random() * chars.length));
-        }
-        // Ensure unique
+        const code = Math.random().toString(36).substring(2, 8).toUpperCase();
         if (this.games.has(code)) {
             return this.generateCode();
         }
@@ -43,17 +37,30 @@ class GameManager {
     /**
      * Create a new game room
      */
-    createGame(hostId: string): GameRoom {
-        const code = this.generateCode();
+    createGame(
+        hostId: string,
+        category: string,
+        question: string,
+        correctAnswer: string,
+        players: { id: string; name: string; score: number }[]
+    ): GameRoom {
+        const gameCode = this.generateCode();
         const game: GameRoom = {
-            code,
+            gameCode,
             hostId,
-            players: new Map(),
-            currentQuestion: null,
-            phase: 'lobby',
-            createdAt: new Date(),
+            phase: 'waiting',
+            category,
+            question,
+            correctAnswer,
+            players: players.map(p => ({
+                playerId: p.id,
+                playerName: p.name,
+                wager: 0,
+                answer: '',
+                revealed: false,
+            })),
         };
-        this.games.set(code, game);
+        this.games.set(gameCode, game);
         return game;
     }
 
@@ -65,46 +72,34 @@ class GameManager {
     }
 
     /**
-     * Add a player to a game
+     * Add or find a player in a game
      */
-    addPlayer(code: string, playerId: string, playerName: string): Player | null {
+    joinGame(code: string, playerId: string, playerName: string): Player | null {
         const game = this.getGame(code);
-        if (!game || game.phase !== 'lobby') return null;
+        if (!game) return null;
 
-        const player: Player = {
-            id: playerId,
-            name: playerName,
-            score: 0,
-            hasAnswered: false,
-        };
-        game.players.set(playerId, player);
+        // Check if player already exists by name
+        let player = game.players.find(p => p.playerName === playerName);
+        if (!player) {
+            player = {
+                playerId,
+                playerName,
+                wager: 0,
+                answer: '',
+                revealed: false,
+            };
+            game.players.push(player);
+        }
         return player;
     }
 
     /**
-     * Remove a player from a game
+     * Advance game phase
      */
-    removePlayer(code: string, playerId: string): boolean {
+    advancePhase(code: string, phase: GameRoom['phase']): boolean {
         const game = this.getGame(code);
         if (!game) return false;
-        return game.players.delete(playerId);
-    }
-
-    /**
-     * Start wagering phase
-     */
-    startWagering(code: string, question: string): boolean {
-        const game = this.getGame(code);
-        if (!game) return false;
-
-        game.phase = 'wagering';
-        game.currentQuestion = question;
-        // Reset player answers
-        game.players.forEach(player => {
-            player.wager = undefined;
-            player.answer = undefined;
-            player.hasAnswered = false;
-        });
+        game.phase = phase;
         return true;
     }
 
@@ -113,38 +108,12 @@ class GameManager {
      */
     submitWager(code: string, playerId: string, wager: number): boolean {
         const game = this.getGame(code);
-        if (!game || game.phase !== 'wagering') return false;
-
-        const player = game.players.get(playerId);
-        if (!player) return false;
-
-        // Wager must be between 0 and player's score (or minimum 5)
-        const maxWager = Math.max(player.score, 5);
-        player.wager = Math.min(Math.max(0, wager), maxWager);
-        return true;
-    }
-
-    /**
-     * Check if all players have wagered
-     */
-    allPlayersWagered(code: string): boolean {
-        const game = this.getGame(code);
         if (!game) return false;
 
-        for (const player of game.players.values()) {
-            if (player.wager === undefined) return false;
-        }
-        return true;
-    }
+        const player = game.players.find(p => p.playerId === playerId);
+        if (!player) return false;
 
-    /**
-     * Start answering phase
-     */
-    startAnswering(code: string): boolean {
-        const game = this.getGame(code);
-        if (!game || game.phase !== 'wagering') return false;
-
-        game.phase = 'answering';
+        player.wager = wager;
         return true;
     }
 
@@ -153,66 +122,26 @@ class GameManager {
      */
     submitAnswer(code: string, playerId: string, answer: string): boolean {
         const game = this.getGame(code);
-        if (!game || game.phase !== 'answering') return false;
+        if (!game) return false;
 
-        const player = game.players.get(playerId);
+        const player = game.players.find(p => p.playerId === playerId);
         if (!player) return false;
 
         player.answer = answer;
-        player.hasAnswered = true;
         return true;
     }
 
     /**
-     * Check if all players have answered
+     * Reveal a player's answer
      */
-    allPlayersAnswered(code: string): boolean {
+    revealAnswer(code: string, playerId: string): boolean {
         const game = this.getGame(code);
         if (!game) return false;
 
-        for (const player of game.players.values()) {
-            if (!player.hasAnswered) return false;
-        }
-        return true;
-    }
+        const player = game.players.find(p => p.playerId === playerId);
+        if (!player) return false;
 
-    /**
-     * Start revealing phase
-     */
-    startRevealing(code: string): boolean {
-        const game = this.getGame(code);
-        if (!game) return false;
-
-        game.phase = 'revealing';
-        return true;
-    }
-
-    /**
-     * Judge a player's answer (host decides correct/incorrect)
-     */
-    judgeAnswer(code: string, playerId: string, correct: boolean): boolean {
-        const game = this.getGame(code);
-        if (!game) return false;
-
-        const player = game.players.get(playerId);
-        if (!player || player.wager === undefined) return false;
-
-        if (correct) {
-            player.score += player.wager;
-        } else {
-            player.score -= player.wager;
-        }
-        return true;
-    }
-
-    /**
-     * End the game
-     */
-    endGame(code: string): boolean {
-        const game = this.getGame(code);
-        if (!game) return false;
-
-        game.phase = 'ended';
+        player.revealed = true;
         return true;
     }
 
@@ -222,31 +151,6 @@ class GameManager {
     deleteGame(code: string): boolean {
         return this.games.delete(code.toUpperCase());
     }
-
-    /**
-     * Get game state for clients (serializable)
-     */
-    getGameState(code: string): object | null {
-        const game = this.getGame(code);
-        if (!game) return null;
-
-        return {
-            code: game.code,
-            phase: game.phase,
-            currentQuestion: game.currentQuestion,
-            players: Array.from(game.players.values()).map(p => ({
-                id: p.id,
-                name: p.name,
-                score: p.score,
-                hasWagered: p.wager !== undefined,
-                hasAnswered: p.hasAnswered,
-                // Only reveal answers during revealing phase
-                wager: game.phase === 'revealing' ? p.wager : undefined,
-                answer: game.phase === 'revealing' ? p.answer : undefined,
-            })),
-        };
-    }
 }
 
 export const gameManager = new GameManager();
-
